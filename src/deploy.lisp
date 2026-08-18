@@ -49,7 +49,7 @@
   (:check (remote-exists-p path))
   (:apply
    (containing-directory-exists path)
-   (write-remote-file path (stripln (mrun "openssl" "rand" "-hex" "32")) :mode #o600)))
+   (write-remote-file path (mrun "openssl" "rand" "32") :mode #o600)))
 
 (defun zfs-create-command (dataset mountpoint keyfile)
   (if keyfile
@@ -80,8 +80,8 @@
 (defprop images-pulled :posix (user &rest images)
   "Pull IMAGES into USER's rootless Podman image store via `machinectl shell`."
   (:desc (format nil "Podman images pulled for ~A" user))
-  (:check (every (lambda (i) (zerop (mrun :for-exit (format nil "machinectl shell ~A@ -- podman image exists ~A" user i)))) images))
-  (:apply (dolist (i images) (mrun (format nil "machinectl shell ~A@ -- podman pull ~A" user i)))))
+  (:check (every (lambda (i) (zerop (mrun :for-exit (format nil "machinectl shell ~A@ /usr/bin/podman image exists ~A" user i)))) images))
+  (:apply (dolist (i images) (mrun (format nil "machinectl shell ~A@ /usr/bin/podman pull ~A" user i)))))
 
 (defun cinix-write-string (sections)
   "Serialize an alist of (section-name . ((key . value) ...)) into INI/systemd unit-file text."
@@ -150,8 +150,8 @@ backend burn_be
   "Reload USER's user-scope systemd daemon and restart enclosed."
   (:desc (format nil "Quadlets activated for ~A" user))
   (:apply
-   (mrun (format nil "machinectl shell ~A@ -- systemctl --user daemon-reload" user))
-   (mrun (format nil "machinectl shell ~A@ -- systemctl --user restart enclosed" user))))
+   (mrun (format nil "machinectl shell ~A@ /usr/bin/systemctl --user daemon-reload" user))
+   (mrun (format nil "machinectl shell ~A@ /usr/bin/systemctl --user restart enclosed" user))))
 
 
 (defprop quadlets-written :posix (user home data-mountpoint)
@@ -188,6 +188,7 @@ backend burn_be
             (current (when (probe-file cfg-path)
                        (uiop:read-file-string cfg-path))))
        (unless (equal new-content current)
+         (containing-directory-exists cfg-path)
          (write-remote-file cfg-path new-content)
          (consfigurator.property.service:reloaded "haproxy"))))))
 
