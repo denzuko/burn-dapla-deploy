@@ -27,6 +27,7 @@
            :service-account-uid
            :quadlets-written
            :haproxy-vhost-written
+           :decommissioned
            :burn-network-sections
            :burn-container-sections
            :haproxy-vhost-config))
@@ -130,7 +131,11 @@
                       ("PublishPort"   . ,(format nil "127.0.0.1:~A:8080" port))
                       ("Volume"        . ,(format nil "~A:/app/data:Z" data-mountpoint))
                       ("Network"       . "burn.network")
-                      ("Label"         . "io.containers.autoupdate=registry")))
+                      ("Label"         . "io.containers.autoupdate=registry")
+                      ("Label"           . "org.cispec.application=burn-dapla-deploy")
+                      ("Label"           . "org.cispec.managed-by=consfigurator")
+                      ("Label"           . "org.cispec.fqdn=burn.dapla.net")
+                      ("Label"           . "org.cispec.service-account=enclosed")))
       ("Service"   . (("Restart" . "on-failure") ("TimeoutStartSec" . "60") ("TimeoutStopSec" . "30")))
       ("Install"   . (("WantedBy" . "default.target"))))))
 
@@ -221,6 +226,32 @@ backend burn_be
   (quadlets-written *service-user* *home-mountpoint* *data-mountpoint*)
   (quadlets-activated *service-user*)
   (haproxy-vhost-written))
+
+
+(defprop decommissioned :posix (user)
+  "Tear down the burn-dapla-deploy stack in least-destructive-first order.
+   Steps:
+     1. Stop all containers in the service account session.
+     2. Remove the HAProxy vhost config and reload HAProxy.
+     3. Terminate the service account login session.
+     4. Disable linger so the account session does not restart.
+     5. Delete the service account.
+     6. Destroy all ZFS datasets (irreversible without a backup).
+     7. Remove the ZFS encryption key files.
+   Confirm a current rsync.net replica or snapshot exists before
+   executing steps 6 and 7."
+  (:desc (format nil "burn-dapla-deploy decommissioned for ~~A" user))
+  (:apply
+   (mrun (format nil "machinectl shell ~~A@ /usr/bin/systemctl --user stop --all" user))
+   (mrun "rm" "-f" (format nil "/etc/haproxy/conf.d/~~A.cfg" *haproxy-vhost-name*))
+   (mrun "systemctl" "reload" "haproxy")
+   (mrun "loginctl" "terminate-user" user)
+   (mrun "loginctl" "disable-linger" user)
+   (mrun "userdel" user)
+   (mrun "zfs" "destroy" "-r" 'storage/users/enclosed')
+   (mrun "zfs" "destroy" "-r" 'storage/containers/enclosed')
+   (mrun "rm" "-f" '/etc/zfs-keys/enclosed-users.key')
+   (mrun "rm" "-f" '/etc/zfs-keys/enclosed-data.key')))
 
 (defun deploy-app ()
   "Provision Enclosed via BURN-HOST. Aborts loudly if any property is skipped."
