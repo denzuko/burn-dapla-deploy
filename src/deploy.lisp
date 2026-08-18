@@ -95,13 +95,20 @@
       (format s "~%"))))
 
 (defun service-account-uid (username)
-  "Read USERNAME's UID via getent at apply time. The UID is the loopback PublishPort."
-  (parse-integer
-   (third (uiop:split-string
-           (string-trim '(#\Newline #\Space)
-             (with-output-to-string (s)
-               (uiop:run-program (list "getent" "passwd" username) :output s)))
-           :separator '(#\:)))))
+  "Read USERNAME's UID from the local passwd database via getent at
+   property apply time, after ROOTLESS-SERVICE-ACCOUNT has run. Returns
+   NIL if the account does not yet exist, allowing callers to defer
+   operations that depend on the UID. The UID is the loopback PublishPort,
+   per dapla.net convention."
+  (let ((raw (with-output-to-string (s)
+               (uiop:run-program (list "getent" "passwd" username)
+                                 :output s
+                                 :ignore-error-status t))))
+    (when (and raw (plusp (length (string-trim '(#\Newline #\Space) raw))))
+      (parse-integer
+       (third (uiop:split-string
+               (string-trim '(#\Newline #\Space) raw)
+               :separator '(#\:)))))))
 
 (defun burn-network-sections ()
   '(("Network" . (("NetworkName" . "burn") ("Internal" . "true")))))
