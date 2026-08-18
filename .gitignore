@@ -1,0 +1,9 @@
+burn-dapla-deploy
+burn-dapla-deploy.tar.gz
+*.fasl
+.qlot/
+qlfile.lock
+docs/
+.DS_Store
+*.swp
+*~
