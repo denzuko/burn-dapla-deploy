@@ -43,7 +43,6 @@
 (defparameter *haproxy-fqdn* "burn.dapla.net")
 (defparameter *haproxy-vhost-name* "burn")
 
-
 (defprop zfs-encryption-key :posix (path)
   "Generate a raw 32-byte ZFS encryption key at PATH, once, left alone on
    redeploy. Written directly by openssl to avoid binary corruption through
@@ -95,29 +94,16 @@
       (dolist (kv (cdr section)) (format s "~A=~A~%" (car kv) (cdr kv)))
       (format s "~%"))))
 
-(defun service-account-uid (username)
-  "Read USERNAME's UID from the local passwd database via getent at
-   property apply time, after ROOTLESS-SERVICE-ACCOUNT has run. Returns
-   NIL if the account does not yet exist, allowing callers to defer
-   operations that depend on the UID. The UID is the loopback PublishPort,
-   per dapla.net convention."
-  (let ((raw (with-output-to-string (s)
-               (uiop:run-program (list "getent" "passwd" username)
-                                 :output s
-                                 :ignore-error-status t))))
-    (when (and raw (plusp (length (string-trim '(#\Newline #\Space) raw))))
-      (parse-integer
-       (third (uiop:split-string
-               (string-trim '(#\Newline #\Space) raw)
-               :separator '(#\:)))))))
-
 (defun burn-network-sections ()
-  '(("Network" . (("NetworkName" . "burn") ("Internal" . "true")))))
+  '(("Network" . (("NetworkName" . "burn") ("Driver"      . "bridge")
+                  ("Subnet"      . "10.89.2.28/30")
+                  ("Gateway"     . "10.89.2.29")))))
 
 (defun burn-container-sections (data-mountpoint)
   "Cinix AST for burn.container. Enclosed uses the rootless-compatible
    image tag. The loopback port is the service account UID."
-  `(("Unit"      . (("Description" . "Enclosed encrypted note sharing")))
+  (let ((port (+ (service-account-uid *service-user*) *port-base*)))
+    `(("Unit"      . (("Description" . "Enclosed encrypted note sharing")))
       ("Container" . (("Image"         . "oci.dapla.net/corentinth/enclosed:latest-rootless")
                       ("ContainerName" . "enclosed")
                       ("AutoUpdate"    . "registry")
