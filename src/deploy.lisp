@@ -23,6 +23,7 @@
            :rootless-service-account
            :images-pulled :quadlets-activated
            :cinix-write-string
+           :*port-base*
            :service-account-uid
            :quadlets-written
            :haproxy-vhost-written
@@ -42,6 +43,11 @@
 (defparameter *data-dataset-keyfile* "/etc/zfs-keys/enclosed-data.key")
 (defparameter *haproxy-fqdn* "burn.dapla.net")
 (defparameter *haproxy-vhost-name* "burn")
+
+(defparameter *port-base* 10000
+  "Added to the service account UID to derive the loopback PublishPort.
+   Keeps all ports above 1024 and clear of well-known service ranges.")
+
 
 (defprop zfs-encryption-key :posix (path)
   "Generate a raw 32-byte ZFS encryption key at PATH, once, left alone on
@@ -116,7 +122,7 @@
 (defun burn-container-sections (data-mountpoint)
   "Cinix AST for burn.container. Enclosed uses the rootless-compatible
    image tag. The loopback port is the service account UID."
-  (let ((port (service-account-uid *service-user*)))
+  (let ((port (+ (service-account-uid *service-user*) *port-base*)))
     `(("Unit"      . (("Description" . "Enclosed encrypted note sharing")))
       ("Container" . (("Image"         . "oci.dapla.net/corentinth/enclosed:latest-rootless")
                       ("ContainerName" . "enclosed")
@@ -130,7 +136,7 @@
 
 (defun haproxy-vhost-config ()
   "HAProxy vhost for burn.dapla.net. Backend port is the service account UID."
-  (let ((port (service-account-uid *service-user*)))
+  (let ((port (+ (service-account-uid *service-user*) *port-base*)))
     (format nil
 "frontend burn_http
   bind *:80
@@ -188,7 +194,7 @@ backend burn_be
   (:desc (format nil "HAProxy vhost written for ~A" *haproxy-fqdn*))
   (:check (null (service-account-uid *service-user*)))
   (:apply
-   (let ((port (service-account-uid *service-user*)))
+   (let ((port (+ (service-account-uid *service-user*) *port-base*)))
      (unless port
        (consfigurator:inapplicable-property
         "Service account ~A does not exist; cannot determine port."
