@@ -172,18 +172,24 @@ backend burn_be
 
 
 (defprop haproxy-vhost-written :posix ()
-  "Write the HAProxy vhost config for this service. Called after
-   ROOTLESS-SERVICE-ACCOUNT has run so service-account-uid resolves
-   correctly, then reloads HAProxy if the content changed."
+  "Write the HAProxy vhost config for this service. Skipped when the
+   service account does not yet exist, since the port cannot be determined.
+   Reloads HAProxy only when content changes."
   (:desc (format nil "HAProxy vhost written for ~A" *haproxy-fqdn*))
+  (:check (null (service-account-uid *service-user*)))
   (:apply
-   (let* ((cfg-path (format nil "/etc/haproxy/conf.d/~A.cfg" *haproxy-vhost-name*))
-          (new-content (haproxy-vhost-config))
-          (current (when (probe-file cfg-path)
-                     (uiop:read-file-string cfg-path))))
-     (unless (equal new-content current)
-       (write-remote-file cfg-path new-content)
-       (consfigurator.property.service:reloaded "haproxy")))))
+   (let ((port (service-account-uid *service-user*)))
+     (unless port
+       (consfigurator:inapplicable-property
+        "Service account ~A does not exist; cannot determine port."
+        *service-user*))
+     (let* ((cfg-path (format nil "/etc/haproxy/conf.d/~A.cfg" *haproxy-vhost-name*))
+            (new-content (haproxy-vhost-config))
+            (current (when (probe-file cfg-path)
+                       (uiop:read-file-string cfg-path))))
+       (unless (equal new-content current)
+         (write-remote-file cfg-path new-content)
+         (consfigurator.property.service:reloaded "haproxy"))))))
 
 (defhost burn-host (:deploy (:local))
   "The Enclosed host: two AES-256-GCM ZFS datasets, rootless service account,
