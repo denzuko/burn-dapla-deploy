@@ -102,8 +102,7 @@
 (defun burn-container-sections (data-mountpoint)
   "Cinix AST for burn.container. Enclosed uses the rootless-compatible
    image tag. The loopback port is the service account UID."
-  (let ((port (+ (service-account-uid *service-user*) *port-base*)))
-    `(("Unit"      . (("Description" . "Enclosed encrypted note sharing")))
+  `(("Unit"      . (("Description" . "Enclosed encrypted note sharing")))
       ("Container" . (("Image"         . "oci.dapla.net/corentinth/enclosed:latest-rootless")
                       ("ContainerName" . "enclosed")
                       ("AutoUpdate"    . "registry")
@@ -119,8 +118,7 @@
 
 (defun haproxy-vhost-config ()
   "HAProxy vhost for burn.dapla.net. Backend port is the service account UID."
-  (let ((port (+ (service-account-uid *service-user*) *port-base*)))
-    (format nil
+  (format nil
 "frontend burn_http
   bind *:80
   acl host_burn hdr(host) -i burn.dapla.net
@@ -177,12 +175,7 @@ backend burn_be
   (:desc (format nil "HAProxy vhost written for ~A" *haproxy-fqdn*))
   (:check nil)
   (:apply
-   (let ((port (+ (service-account-uid *service-user*) *port-base*)))
-     (unless port
-       (consfigurator:inapplicable-property
-        "Service account ~A does not exist; cannot determine port."
-        *service-user*))
-     (let* ((cfg-path (format nil "/etc/haproxy/conf.d/~A.cfg" *haproxy-vhost-name*))
+   (let* ((cfg-path (format nil "/etc/haproxy/conf.d/~A.cfg" *haproxy-vhost-name*))
             (new-content (haproxy-vhost-config))
             (current (when (probe-file cfg-path)
                        (uiop:read-file-string cfg-path))))
