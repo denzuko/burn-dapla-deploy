@@ -219,10 +219,10 @@ backend burn_be
    (mrun "loginctl" "terminate-user" user)
    (mrun "loginctl" "disable-linger" user)
    (mrun "userdel" user)
-   (mrun "zfs" "destroy" "-r" 'storage/users/enclosed')
-   (mrun "zfs" "destroy" "-r" 'storage/containers/enclosed')
-   (mrun "rm" "-f" '/etc/zfs-keys/enclosed-users.key')
-   (mrun "rm" "-f" '/etc/zfs-keys/enclosed-data.key')))
+   (mrun "zfs" "destroy" "-r" "storage/users/enclosed")
+   (mrun "zfs" "destroy" "-r" "storage/containers/enclosed")
+   (mrun "rm" "-f" "/etc/zfs-keys/enclosed-users.key")
+   (mrun "rm" "-f" "/etc/zfs-keys/enclosed-data.key")))
 
 (defun deploy-app ()
   "Provision Enclosed via BURN-HOST. Aborts loudly if any property is skipped."
